@@ -33,7 +33,7 @@ uint32_t startMillis = UINT32_MAX;
 #define THRESHOLD 0x80 //(128) min: 0x2b (43) max: 0xc5 (197)
 #define THRESHOLD_LOW 0x40
 
-#define SPEED_HIGH 25 // km/h
+#define SPEED_HIGH 30 // km/h
 #define SPEED_LOW 20
 
 #define COMMAND_LOCK 0x7D
