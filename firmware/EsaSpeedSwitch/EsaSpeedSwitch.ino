@@ -28,7 +28,7 @@
 #define THRESHOLD_LOW 0x40
 #define THRESHOLD_HIGH 0x80 //(128) min: 0x2b (43) max: 0xc5 (197)
 
-#define SPEED_HIGH 30 // km/h
+#define SPEED_HIGH 40 // km/h
 #define SPEED_MEDIUM 25
 #define SPEED_LOW 20
 
@@ -213,7 +213,7 @@ void setTune()
 
 void runCommand(uint8_t command)
 {
-  if (command == 2)
+  if (command == 3)
   {
     detune();
   }
@@ -257,7 +257,6 @@ void loop()
 
   if (dashButtonHasChanged && dashButton)
   {
-    flashLED(1, 100);
     buttonCount += 1;
     lastButtonPressMillis = now;
   }
