@@ -37,6 +37,8 @@
 #define COMMAND_LOCK 0x7D
 #define COMMAND_SPEED 0xF2
 
+#define ARG_SPEED 0x28
+
 #define RX_DISABLE UCSR0B &= ~_BV(RXEN0);
 #define RX_ENABLE UCSR0B |= _BV(RXEN0);
 
@@ -67,7 +69,7 @@ void sendCommand(uint8_t command, uint8_t value, uint8_t address = 0x22, int ite
   };
 
   if (command == COMMAND_SPEED)
-    *(uint16_t *)&data[6] = (value * 252) / 10;
+    *(uint16_t *)&data[6] = value * 252 / 10; 
   else
     *(uint16_t *)&data[6] = value;
 
@@ -113,7 +115,7 @@ uint8_t receivePacket(uint8_t *throttle, uint8_t *brake, bool *dashButton)
 
   uint16_t actualChecksum = (uint16_t)readBlocking() | ((uint16_t)readBlocking() << 8);
   uint16_t expectedChecksum = calculateChecksum(buff);
-  
+
   if (actualChecksum != expectedChecksum)
     return 0;
 
