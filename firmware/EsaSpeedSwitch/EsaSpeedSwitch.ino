@@ -32,12 +32,14 @@
 #define SPEED_MEDIUM 25
 #define SPEED_LOW 20
 
-#define COMMAND_1 0x01
+#define ADDRESS_22 0x22
+#define COMMAND_01 0x01
 #define ARG_ECO 0x7C
 #define ARG_LIGHT 0xF0
 #define ARG_LOCK 0x7D
 #define ARG_MAXSPEED 0xF2
 
+#define ADDRESS_11 0x11
 #define COMMAND_33 0x33
 #define ARG_SPEED 0x28
 
@@ -62,8 +64,12 @@ uint16_t calculateChecksum(uint8_t *data)
   return sum;
 }
 
-void sendCommand(uint8_t len = 0x04, uint8_t address = 0x22, uint8_t command = COMMAND_1, uint8_t arg, uint8_t value, int iterations = 3)
+void sendData(uint8_t address, uint8_t command, uint8_t arg, uint8_t value)
 {
+
+  uint8_t len = 0x04;
+  int iterations = 3;
+
   uint8_t data[] = {
       0x55, 0xAA, len, address, command, arg,
       0, 0, //value
@@ -180,19 +186,19 @@ void flashLED(int count, int pause)
 
 void blinkEco()
 {
-  sendCommand(ARG_ECO, 0x01);
+  sendData(ADDRESS_22, COMMAND_01 ,ARG_ECO, 0x01);
   delay(250);
-  sendCommand(ARG_ECO, 0x00);
+  sendData(ADDRESS_22, COMMAND_01 ,ARG_ECO, 0x00);
 }
 
 void setLock(bool lock)
 {
-  sendCommand(ARG_LOCK, lock);
+  sendData(ADDRESS_22, COMMAND_01 ,ARG_LOCK, lock);
 }
 
 void detune()
 {
-  sendCommand(ARG_MAXSPEED, SPEED_LOW);
+  sendData(ADDRESS_22, COMMAND_01 ,ARG_MAXSPEED, SPEED_LOW);
   blinkEco();
 }
 
@@ -209,7 +215,7 @@ void setTune()
   else
     tuneLevel = SPEED_LOW;
 
-  sendCommand(ARG_MAXSPEED, tuneLevel);
+  sendData(ADDRESS_22,COMMAND_01 ,ARG_MAXSPEED, tuneLevel);
   blinkEco();
 }
 
