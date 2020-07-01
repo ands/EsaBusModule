@@ -25,10 +25,10 @@
 #include <stdint.h>
 
 #define LED_BUILTIN 13
-#define THRESHOLD_LOW 0x40
-#define THRESHOLD_HIGH 0x80 //(128) min: 0x2b (43) max: 0xc5 (197)
+#define THRESHOLD_LOW 0x30 // Lever just pushed a little bit
+#define THRESHOLD_HIGH 0x80 // Lever pushed about half way    min: 0x2b (43) max: 0xc5 (197)
 
-#define SPEED_HIGH 40 // km/h
+#define SPEED_HIGH 30 // km/h
 #define SPEED_MEDIUM 25
 #define SPEED_LOW 20
 
@@ -93,6 +93,7 @@ uint8_t receivePacket(uint8_t *throttle, uint8_t *brake, bool *dashButton)
 {
   if (readBlocking() != 0x55)
     return 0;
+
   if (readBlocking() != 0xAA)
     return 0;
 
@@ -112,6 +113,7 @@ uint8_t receivePacket(uint8_t *throttle, uint8_t *brake, bool *dashButton)
 
   uint16_t actualChecksum = (uint16_t)readBlocking() | ((uint16_t)readBlocking() << 8);
   uint16_t expectedChecksum = calculateChecksum(buff);
+  
   if (actualChecksum != expectedChecksum)
     return 0;
 
@@ -195,17 +197,13 @@ void setTune()
   uint8_t tuneLevel;
 
   if (throttle >= THRESHOLD_HIGH)
-  {
     tuneLevel = SPEED_HIGH;
-  }
+  
   else if (throttle >= THRESHOLD_LOW)
-  {
     tuneLevel = SPEED_MEDIUM;
-  }
+  
   else
-  {
     tuneLevel = SPEED_LOW;
-  }
 
   sendCommand(COMMAND_SPEED, tuneLevel);
   blinkEco();
@@ -214,24 +212,16 @@ void setTune()
 void runCommand(uint8_t command)
 {
   if (command == 3)
-  {
     detune();
-  }
 
   if (command == 4 && brake > THRESHOLD_HIGH)
-  {
     setLock(true);
-  }
 
   if (command == 5)
-  {
     setTune();
-  }
 
   if (command == 6 && brake >= THRESHOLD_LOW && brake <= THRESHOLD_HIGH)
-  {
     setLock(false);
-  }
 }
 
 void setup()
