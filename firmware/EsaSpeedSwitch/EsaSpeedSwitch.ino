@@ -39,10 +39,6 @@
 #define ARG_LOCK 0x7D
 #define ARG_MAXSPEED 0xF2
 
-#define ADDRESS_11 0x11
-#define COMMAND_33 0x33
-#define ARG_SPEED 0x28
-
 #define RX_DISABLE UCSR0B &= ~_BV(RXEN0);
 #define RX_ENABLE UCSR0B |= _BV(RXEN0);
 
