@@ -24,183 +24,242 @@
 #include <Arduino.h>
 #include <stdint.h>
 
-static bool tuned = false;
 #define LED_BUILTIN 13
-#define THRESHOLD 0x80 // min: 0x2b max: 0xc5
+#define THRESHOLD_LOW 0x30 // Lever just pushed a little bit
+#define THRESHOLD_HIGH 0x80 // Lever pushed about half way    min: 0x2b (43) max: 0xc5 (197)
+
+#define SPEED_HIGH 30 // km/h
+#define SPEED_MEDIUM 25
+#define SPEED_LOW 20
+
+#define ADDRESS_22 0x22
+#define COMMAND_01 0x01
+#define ARG_ECO 0x7C
+#define ARG_LIGHT 0xF0
+#define ARG_LOCK 0x7D
+#define ARG_MAXSPEED 0xF2
+
+#define ADDRESS_11 0x11
+#define COMMAND_33 0x33
+#define ARG_SPEED 0x28
 
 #define RX_DISABLE UCSR0B &= ~_BV(RXEN0);
-#define RX_ENABLE  UCSR0B |=  _BV(RXEN0);
+#define RX_ENABLE UCSR0B |= _BV(RXEN0);
+
+bool dashButton = 0;
+uint8_t throttle = 0;
+uint8_t brake = 0;
+
+uint32_t lastButtonPressMillis = 0;
+uint8_t buttonCount = 0;
+uint8_t oldDashButton = 0;
 
 uint16_t calculateChecksum(uint8_t *data)
 {
-	uint8_t len = data[0] + 2;
-	uint16_t sum = 0;
-	for(int i = 0; i < len; i++)
-		sum += data[i];
-	sum ^= 0xFFFF;
-	return sum;
+  uint8_t len = data[0] + 2;
+  uint16_t sum = 0;
+  for (int i = 0; i < len; i++)
+    sum += data[i];
+  sum ^= 0xFFFF;
+  return sum;
 }
 
-void setMaxSpeed(uint8_t speed)
+void sendData(uint8_t address, uint8_t command, uint8_t arg, uint8_t value)
 {
-	uint8_t data[] = {
-		0x55, 0xAA, 0x04, 0x22, 0x01, 0xF2,
-		0, 0, //rpm
-		0, 0, //checksum
-	};
 
-	*(uint16_t *)&data[6] = (speed * 252) / 10;
-	*(uint16_t *)&data[8] = calculateChecksum(data + 2);
+  uint8_t len = 0x04;
+  int iterations = 3;
 
-	RX_DISABLE;
-	Serial.write(data, sizeof(data) / sizeof(uint8_t));
-	RX_ENABLE;
+  uint8_t data[] = {
+      0x55, 0xAA, len, address, command, arg,
+      0, 0, //value
+      0, 0, //checksum
+  };
+
+  if (arg == ARG_MAXSPEED)
+    *(uint16_t *)&data[6] = value * 252 / 10; 
+  else
+    *(uint16_t *)&data[6] = value;
+
+  *(uint16_t *)&data[8] = calculateChecksum(data + 2);
+
+  RX_DISABLE;
+  for (int i = 0; i < iterations; i++)
+  {
+    Serial.write(data, sizeof(data) / sizeof(uint8_t));
+    delay(50);
+  }
+  RX_ENABLE;
 }
 
 uint8_t readBlocking()
 {
-	while(!Serial.available()) delay(1);
-	return Serial.read();
+  while (!Serial.available())
+    delay(1);
+  return Serial.read();
 }
 
-uint8_t receivePacket(uint8_t* throttle, uint8_t* brake)
+uint8_t receivePacket(uint8_t *throttle, uint8_t *brake, bool *dashButton)
 {
-	if(readBlocking() != 0x55)
-		return 0;
-	if(readBlocking() != 0xAA)
-		return 0;
+  if (readBlocking() != 0x55)
+    return 0;
 
-	uint8_t buff[256];
+  if (readBlocking() != 0xAA)
+    return 0;
 
-	uint8_t len = readBlocking();
-	buff[0] = len;
-	if(len >= sizeof(buff) - 4)
-		return 0;
+  uint8_t buff[256];
 
-	uint8_t addr = readBlocking();
-	buff[1] = addr;
+  uint8_t len = readBlocking();
+  buff[0] = len;
 
-	for(int i = 0; i < len; i++)
-	{
-		buff[i + 2] = readBlocking();
-	}
+  if (len >= sizeof(buff) - 4)
+    return 0;
 
-	uint16_t actualChecksum = (uint16_t)readBlocking() | ((uint16_t)readBlocking() << 8);
-	uint16_t expectedChecksum = calculateChecksum(buff);
-	if(actualChecksum != expectedChecksum)
-		return 0;
+  uint8_t addr = readBlocking();
+  buff[1] = addr;
 
-	uint8_t success = 0;
-	switch(addr)
-	{
-		case 0x25:
-		{
-			switch (buff[2])
-			{
-				case 0x60:
-				{
-					*throttle = buff[5];
-					*brake = buff[6];
-					success = 1;
-				}
-				break;
-				case 0x64:
-				{
-					*throttle = buff[6];
-					*brake = buff[7];
-					success = 1;
-				}
-				break;
-			}
-		}
-		break;
-		case 0x27:
-		{
-			*throttle = buff[5];
-			*brake = buff[6];
-			success = 1;
-		}
-		break;
-	}
+  for (int i = 0; i < len; i++)
+    buff[i + 2] = readBlocking();
 
-	return success;
+  uint16_t actualChecksum = (uint16_t)readBlocking() | ((uint16_t)readBlocking() << 8);
+  uint16_t expectedChecksum = calculateChecksum(buff);
+
+  if (actualChecksum != expectedChecksum)
+    return 0;
+
+  uint8_t success = 0;
+
+  switch (addr)
+  {
+  case 0x25:
+  {
+    switch (buff[2])
+    {
+    case 0x60:
+    {
+      *throttle = buff[5];
+      *brake = buff[6];
+      success = 1;
+    }
+    break;
+    case 0x64:
+    {
+      *throttle = buff[6];
+      *brake = buff[7];
+      success = 1;
+    }
+    break;
+    }
+  }
+  break;
+  case 0x27:
+  {
+    *throttle = buff[5];
+    *brake = buff[6];
+    success = 1;
+  }
+  break;
+  case 0x28:
+  {
+    *dashButton = (buff[10] == 0x01);
+    success = 1;
+  }
+  break;
+  }
+  return success;
+}
+
+void flashLED(int count, int pause)
+{
+  for (int i = 0; i < count; i++)
+  {
+    digitalWrite(LED_BUILTIN, HIGH);
+    delay(pause);
+    digitalWrite(LED_BUILTIN, LOW);
+
+    if (i < (count - 1))
+    {
+      delay(pause);
+    }
+  }
+}
+
+void blinkEco()
+{
+  sendData(ADDRESS_22, COMMAND_01 ,ARG_ECO, 0x01);
+  delay(250);
+  sendData(ADDRESS_22, COMMAND_01 ,ARG_ECO, 0x00);
+}
+
+void setLock(bool lock)
+{
+  sendData(ADDRESS_22, COMMAND_01 ,ARG_LOCK, lock);
+}
+
+void detune()
+{
+  sendData(ADDRESS_22, COMMAND_01 ,ARG_MAXSPEED, SPEED_LOW);
+  blinkEco();
+}
+
+void setTune()
+{
+  uint8_t tuneLevel;
+
+  if (throttle >= THRESHOLD_HIGH)
+    tuneLevel = SPEED_HIGH;
+  
+  else if (throttle >= THRESHOLD_LOW)
+    tuneLevel = SPEED_MEDIUM;
+  
+  else
+    tuneLevel = SPEED_LOW;
+
+  sendData(ADDRESS_22,COMMAND_01 ,ARG_MAXSPEED, tuneLevel);
+  blinkEco();
+}
+
+void runCommand(uint8_t command)
+{
+  if (command == 3)
+    detune();
+
+  if (command == 4 && brake > THRESHOLD_HIGH)
+    setLock(true);
+
+  if (command == 5)
+    setTune();
+
+  if (command == 6 && brake >= THRESHOLD_LOW && brake <= THRESHOLD_HIGH)
+    setLock(false);
 }
 
 void setup()
 {
-	Serial.begin(115200);
-	pinMode(LED_BUILTIN, OUTPUT);
-	digitalWrite(LED_BUILTIN, HIGH);
-	delay(500);
-	digitalWrite(LED_BUILTIN, LOW);
+  Serial.begin(115200);
+  pinMode(LED_BUILTIN, OUTPUT);
+  flashLED(1, 500);
 }
 
 void loop()
 {
-	uint8_t throttle = 0;
-	uint8_t brake = 0;
-	if (receivePacket(&throttle, &brake))
-	{
-		uint32_t now = millis();
+  uint32_t now = millis();
 
-		// Switch tuning states:
-		if (!tuned)
-		{
-			static uint32_t startTune = UINT32_MAX;
-			if (throttle > THRESHOLD &&
-			       brake > THRESHOLD)
-			{
-				if (startTune > now)
-					startTune = now;
-				if ((now - startTune) > 5000)
-				{
-					digitalWrite(LED_BUILTIN, HIGH);
+  receivePacket(&throttle, &brake, &dashButton);
 
-					setMaxSpeed(30);
-					delay(50);
-					setMaxSpeed(30);
-					delay(50);
-					setMaxSpeed(30);
+  bool dashButtonHasChanged = dashButton != oldDashButton;
 
-					startTune = UINT32_MAX;
-					tuned = true;
+  if (now - lastButtonPressMillis > 1000 && buttonCount > 0)
+  {
+    runCommand(buttonCount);
+    buttonCount = 0;
+  }
 
-					digitalWrite(LED_BUILTIN, LOW);
-				}
-			}
-			else
-			{
-				startTune = UINT32_MAX;
-			}
-		}
-		else
-		{
-			static uint32_t startUntune = UINT32_MAX;
-			if (throttle < THRESHOLD &&
-			       brake > THRESHOLD)
-			{
-				if (startUntune > now)
-					startUntune = now;
-				if ((now - startUntune) > 1000)
-				{
-					digitalWrite(LED_BUILTIN, HIGH);
+  if (dashButtonHasChanged && dashButton)
+  {
+    buttonCount += 1;
+    lastButtonPressMillis = now;
+  }
 
-					setMaxSpeed(20);
-					delay(50);
-					setMaxSpeed(20);
-					delay(50);
-					setMaxSpeed(20);
-
-					startUntune = UINT32_MAX;
-					tuned = false;
-
-					digitalWrite(LED_BUILTIN, LOW);
-				}
-			}
-			else
-			{
-				startUntune = UINT32_MAX;
-			}
-		}
-	}
+  oldDashButton = dashButton;
 }
