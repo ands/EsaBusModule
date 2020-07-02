@@ -1,5 +1,5 @@
 Release
 __vm
-.vs
+.vs*
 *.sln
 *.vcxproj*
