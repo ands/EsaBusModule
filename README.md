@@ -14,7 +14,10 @@ If you use the original hardware, the max. speed after power on is always 20 km/
 A successful change of speed is shown by switching to eco mode for a short time (green LED lights up).
 You can not change speed limit of eco mode, it will stay at 15 km/h.
 
-- 3x button or 5x button = 20 km/h
+NEW: there is now another, unsuspicious way of setting the default speed to 20km/h. In case of a "special situation" :wink:
+
+- fully depress and hold throttle and brake for 3 seconds = 20 km/h
+
 - 5x button and throttle lightly depressed = 25 km/h
 - 5x button and throttle fully depressed = 30 km/h
 

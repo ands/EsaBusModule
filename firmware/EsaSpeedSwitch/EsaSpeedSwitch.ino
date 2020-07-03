@@ -42,10 +42,12 @@
 #define RX_DISABLE UCSR0B &= ~_BV(RXEN0);
 #define RX_ENABLE UCSR0B |= _BV(RXEN0);
 
+bool easyDetune = 0;
 bool dashButton = 0;
 uint8_t throttle = 0;
 uint8_t brake = 0;
 
+uint32_t beginEasyDetuningMillis = 0;
 uint32_t lastButtonPressMillis = 0;
 uint8_t buttonCount = 0;
 uint8_t oldDashButton = 0;
@@ -209,7 +211,7 @@ void setTune()
     tuneLevel = SPEED_MEDIUM;
   
   else
-    tuneLevel = SPEED_LOW;
+    tuneLevel = SPEED_LOW; //remove?
 
   sendData(ADDRESS_22,COMMAND_01 ,ARG_MAXSPEED, tuneLevel);
   blinkEco();
@@ -217,7 +219,7 @@ void setTune()
 
 void runCommand(uint8_t command)
 {
-  if (command == 3)
+  if (command == 3) //remove?
     detune();
 
   if (command == 4 && brake > THRESHOLD_HIGH)
@@ -255,6 +257,27 @@ void loop()
   {
     buttonCount += 1;
     lastButtonPressMillis = now;
+  }
+
+  if (throttle > THRESHOLD_HIGH && brake > THRESHOLD_HIGH)
+  {
+    if (!easyDetune)
+    {
+      beginEasyDetuningMillis = now;
+    }
+    easyDetune = 1;
+  }
+  else
+  {
+    easyDetune = 0;
+    beginEasyDetuningMillis = 0;
+  }
+
+  if (easyDetune && now - beginEasyDetuningMillis > 3000)
+  {
+    detune();
+    beginEasyDetuningMillis = 0;
+    easyDetune = 0;
   }
 
   oldDashButton = dashButton;

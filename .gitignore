@@ -1,6 +1,6 @@
 Release
 __vm
-.vs*
-.editorconfig
+.vs
+.vscode
 *.sln
 *.vcxproj*
