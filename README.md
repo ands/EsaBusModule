@@ -5,9 +5,10 @@ This is a repository for all things around the EsaBusModule, an Arduino Nano com
 
 ## Operation Principle
 
-The added board can listen to dashboard inputs and send its own commands to the motor controller without the need to change the original dashboard or the motor controller PCB.
-Examples for commands are: Setting a new maximum speed, enabling the immobilizer lock mode, toggling the ECO mode or the lights.
-It can read inputs from the dash board such as the throttle and brake levers and the button on the dashboard.
+This board can listen to dashboard inputs and send its own commands to the motor controller without the need to make changes to the original dashboard or the motor controller PCB.
+It just plugs in between the dashboard and the motor controller at the already existing 4-pin connector inside the handle bar.
+Examples for commands are: Enabling the immobilizer lock mode, toggling the ECO mode or the lights and setting a new maximum speed.
+It can read inputs from the dashboard such as the throttle and brake levers as well as the button on the dashboard.
 
 
 ## Hardware
